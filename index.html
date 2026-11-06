@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>顺路搭 · AI校园拼车互助平台</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ========== 底部标签栏 ========== -->
+  <nav class="tabbar" id="tabbar">
+    <div class="tab-item active" data-tab="home" onclick="switchTab('home')">
+      <span class="tab-icon">🏠</span><span class="tab-label">拼车广场</span>
+    </div>
+    <div class="tab-item" data-tab="publish" onclick="switchTab('publish')">
+      <span class="tab-icon">➕</span><span class="tab-label">发布行程</span>
+    </div>
+    <div class="tab-item" data-tab="ai" onclick="switchTab('ai')">
+      <span class="tab-icon">🤖</span><span class="tab-label">AI出行</span>
+    </div>
+    <div class="tab-item" data-tab="mine" onclick="switchTab('mine')">
+      <span class="tab-icon">👤</span><span class="tab-label">我的</span>
+    </div>
+  </nav>
+
+  <!-- ========== 页面容器 ========== -->
+  <div class="page-container">
+
+    <!-- ########## 页面1：拼车广场（首页） ########## -->
+    <section class="page" id="page-home">
+      <header class="page-header">
+        <h1>顺路搭</h1>
+        <p class="slogan">顺路出发，安全到达</p>
+      </header>
+
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="🔍 搜索目的地，如：武汉站 / 光谷" oninput="renderList()">
+      </div>
+
+      <div class="heat-bar"><span class="heat-dot"></span><span>今日晴川→地铁站拼车 <b>18</b> 单进行中，大家都在顺路出发</span></div>
+
+      <div class="filter-row">
+        <button class="chip active" data-filter="全部" onclick="setFilter('全部', this)">全部</button>
+        <button class="chip" data-filter="佛祖岭" onclick="setFilter('佛祖岭', this)">佛祖岭</button>
+        <button class="chip" data-filter="高新四路" onclick="setFilter('高新四路', this)">大悦城</button>
+        <button class="chip" data-filter="光谷" onclick="setFilter('光谷', this)">光谷</button>
+      </div>
+
+      <div class="trip-list" id="tripList"></div>
+      <div class="empty-tip" id="emptyTip" style="display:none;">
+        <p>😢 没有找到合适的行程</p>
+        <p class="sub">发布一条行程，让同路人找到你</p>
+        <button class="btn-primary" onclick="switchTab('publish')">去发布</button>
+      </div>
+    </section>
+
+    <!-- ########## 页面2：发布行程 ########## -->
+    <section class="page" id="page-publish" style="display:none;">
+      <header class="page-header">
+        <h1>发布行程</h1>
+        <p class="slogan">发布后 AI 帮你匹配顺路搭子</p>
+      </header>
+
+      <div class="form-card">
+        <label class="field">
+          <span>发布类型</span>
+          <div class="type-toggle">
+            <label class="type-opt"><input type="radio" name="tripType" value="taxi" checked><span>🚕 打车拼车</span></label>
+            <label class="type-opt"><input type="radio" name="tripType" value="car"><span>🚗 车主投稿</span></label>
+          </div>
+        </label>
+        <label class="field">
+          <span>出发地</span>
+          <select id="fromSelect">
+            <option>晴川学院</option>
+            <option>佛祖岭地铁站</option>
+            <option>高新四路地铁站（大悦城）</option>
+            <option>光谷广场</option>
+            <option>武汉站</option>
+            <option>天河机场</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>目的地（可自定义）</span>
+          <select id="toSelect" onchange="onCustomDestInput()">
+            <option>佛祖岭地铁站</option>
+            <option>高新四路地铁站（大悦城）</option>
+            <option>光谷广场</option>
+            <option>街道口</option>
+            <option>江汉路</option>
+            <option>武汉站</option>
+            <option>武昌站</option>
+            <option>汉口站</option>
+            <option>天河机场</option>
+            <option>晴川学院</option>
+            <option value="__custom__">✏️ 自定义目的地（如某学校）</option>
+          </select>
+          <input type="text" id="customToInput" placeholder="输入目的地，如：武汉纺织大学 / 华中科技大学" style="display:none;margin-top:8px" oninput="onCustomDestInput()">
+          <div class="center-hint" id="centerHint"></div>
+        </label>
+        <label class="field">
+          <span>出发时间（预约）</span>
+          <input type="datetime-local" id="timeInput" value="2026-11-07T09:00">
+        </label>
+        <label class="field">
+          <span>人数</span>
+          <select id="seatsSelect">
+            <option>2</option>
+            <option>3</option>
+            <option selected>4</option>
+            <option>5</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>费用说明</span>
+          <select id="feeSelect">
+            <option selected>AA 打车费</option>
+            <option>免费互助</option>
+            <option>AA 油费过路费</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>备注</span>
+          <textarea id="noteInput" rows="2" placeholder="如：有行李 / 晚点会等 / 不吸烟"></textarea>
+        </label>
+        <label class="field">
+          <span>联系方式（仅同路人可见）</span>
+          <input type="text" id="contactInput" placeholder="微信号 / 手机号">
+        </label>
+        <button class="btn-primary btn-block" onclick="publishTrip()">🚀 发布行程</button>
+      </div>
+    </section>
+
+    <!-- ########## 页面3：行程详情 + AI 顺路推荐 ########## -->
+    <section class="page" id="page-detail" style="display:none;">
+      <header class="page-header detail-header">
+        <button class="back-btn" onclick="goBack()">← 返回</button>
+        <h1>行程详情</h1>
+      </header>
+
+      <div class="detail-card" id="detailCard"></div>
+
+      <div class="ai-panel" id="aiPanel"></div>
+    </section>
+
+    <!-- ########## 页面4：AI 出行助手 ########## -->
+    <section class="page" id="page-ai" style="display:none;">
+      <header class="page-header">
+        <h1>AI 出行助手</h1>
+        <p class="slogan">问它，怎么走最顺路</p>
+      </header>
+
+      <div class="chat-box" id="chatBox">
+        <div class="msg ai">
+          <div class="bubble">你好呀！我是顺路搭 AI 出行助手 🚗<br>可以问我：<br>· 明天下午从晴川学院怎么去武汉站？<br>· 后天早上有没有去天河机场的拼车？<br>· 光谷现在人多吗？
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chatInput" placeholder="输入你的出行问题…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn-primary" onclick="sendChat()">发送</button>
+      </div>
+      <div class="quick-questions">
+        <button class="chip" onclick="quickAsk('明天下午从晴川学院怎么去武汉站？')">去武汉站</button>
+        <button class="chip" onclick="quickAsk('后天早上有没有去天河机场的拼车？')">机场拼车</button>
+        <button class="chip" onclick="quickAsk('帮我对比下拼车和地铁哪个划算')">对比方案</button>
+      </div>
+    </section>
+
+    <!-- ########## 页面5：我的 ########## -->
+    <section class="page" id="page-mine" style="display:none;">
+      <header class="page-header">
+        <h1>我的</h1>
+        <p class="slogan">安全 · 互助 · 信任</p>
+      </header>
+
+      <div class="mine-card">
+        <div class="avatar">👤</div>
+        <div class="mine-info">
+          <div class="mine-name">晴川同学</div>
+          <div class="mine-tag">✅ 已实名认证 · 新闻学 大四</div>
+        </div>
+      </div>
+
+      <div class="mine-menu">
+        <div class="mine-item" onclick="showMyTrips()">
+          <span>📋 我发布的行程</span><span class="arrow">›</span>
+        </div>
+        <div class="mine-item">
+          <span>🔐 安全中心</span><span class="arrow">›</span>
+        </div>
+        <div class="mine-item">
+          <span>📖 拼车安全须知</span><span class="arrow">›</span>
+        </div>
+        <div class="mine-item" onclick="showAbout()">
+          <span>💡 关于顺路搭</span><span class="arrow">›</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- 轻提示 -->
+<div class="toast" id="toast"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
