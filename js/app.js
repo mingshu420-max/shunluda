@@ -218,6 +218,7 @@ function renderDetail(trip) {
 }
 
 // ========== AI 出行助手 ==========
+// 优先调用真实 DeepSeek API；未配置 Key 或调用失败时自动降级为本地模拟回复
 function sendChat() {
   const input = document.getElementById('chatInput');
   const q = input.value.trim();
@@ -229,11 +230,64 @@ function sendChat() {
   const loadingId = 'ai-loading';
   box.insertAdjacentHTML('beforeend', `<div class="msg ai" id="${loadingId}"><div class="bubble"><div class="ai-loading">AI 正在分析顺路方案<span class="dots"><span></span><span></span><span></span></span></div></div></div>`);
   box.scrollTop = box.scrollHeight;
-  setTimeout(() => {
-    const reply = aiChatReply(q);
-    document.getElementById(loadingId).outerHTML = `<div class="msg ai"><div class="bubble">${escapeHtml(reply)}</div></div>`;
+
+  const cfg = (typeof window.APP_CONFIG !== 'undefined') ? window.APP_CONFIG : null;
+  const hasKey = cfg && cfg.DEEPSEEK_API_KEY && !cfg.DEEPSEEK_API_KEY.includes('请填入');
+
+  const finish = (reply) => {
+    const el = document.getElementById(loadingId);
+    if (!el) return;
+    el.outerHTML = `<div class="msg ai"><div class="bubble">${escapeHtml(reply)}</div></div>`;
     box.scrollTop = box.scrollHeight;
-  }, 900);
+  };
+
+  if (hasKey) {
+    askDeepSeek(q)
+      .then(text => finish(text))
+      .catch(() => {
+        // API 失败（网络/限流等）→ 降级为本地演示回复，保证演示不中断
+        setTimeout(() => finish(aiChatReply(q)), 400);
+      });
+  } else {
+    setTimeout(() => finish(aiChatReply(q)), 900);
+  }
+}
+
+// 调用真实 DeepSeek API（OpenAI 兼容接口，浏览器直调，CORS 已验证可用）
+async function askDeepSeek(question) {
+  const cfg = window.APP_CONFIG;
+  // 注入演示行程数据，让 AI 结合"顺路搭"实时行程回答
+  const tripsBrief = DEMO_TRIPS.map(t => {
+    const joined = t.seatsTotal - t.seats;
+    return `${t.owner}(${t.ownerMajor})：${t.from}→${t.to}，${formatTime(t.time)}，在拼${joined}/${t.seatsTotal}人还缺${t.seats}人，${t.type==='car'?'车主直发':'打车拼车'}，费用${t.fee}，备注：${t.note}`;
+  }).join('\n');
+
+  const resp = await fetch(`${cfg.DEEPSEEK_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${cfg.DEEPSEEK_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: cfg.DEEPSEEK_MODEL,
+      temperature: 0.7,
+      messages: [
+        {
+          role: 'system',
+          content: `你是"顺路搭"App的AI出行助手。这是一个面向武汉晴川学院学生的校园拼车互助平台。当前演示行程如下（实时数据）：\n${tripsBrief}\n\n回答规则：\n1. 推荐顺路行程时，必须引用上面行程里真实存在的人名和出发时间；\n2. 同时可以给出地铁、公交等备选方案做对比；\n3. 语气亲切、简洁，使用 emoji，最后可加一句安全提示；\n4. 若问题与出行无关，礼貌引导回出行话题。`
+        },
+        { role: 'user', content: question }
+      ],
+      stream: false
+    })
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`DeepSeek API ${resp.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = await resp.json();
+  return data.choices[0].message.content.trim();
 }
 
 function quickAsk(q) {
